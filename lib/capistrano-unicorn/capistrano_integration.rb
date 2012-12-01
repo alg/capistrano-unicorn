@@ -21,6 +21,7 @@ module CapistranoUnicorn
           _cset(:unicorn_env)    { fetch(:app_env) }
           _cset(:unicorn_bin)    { "unicorn" }
           _cset(:unicorn_bundle) { fetch(:bundle_cmd) rescue 'bundle' }
+          _cset(:unicorn_roles)  { :app }
         end
 
         # Check if a remote process exists using its pid file
@@ -119,23 +120,23 @@ module CapistranoUnicorn
         #
         namespace :unicorn do
           desc 'Start Unicorn master process'
-          task :start, :roles => :web, :except => {:no_release => true} do
-            run start_unicorn
+          task :start, :roles => :app, :except => {:no_release => true} do
+            run start_unicorn, :roles => unicorn_roles
           end
 
           desc 'Stop Unicorn'
-          task :stop, :roles => :web, :except => {:no_release => true} do
-            run kill_unicorn('QUIT')
+          task :stop, :roles => :app, :except => {:no_release => true} do
+            run kill_unicorn('QUIT'), :roles => unicorn_roles
           end
 
           desc 'Immediately shutdown Unicorn'
-          task :shutdown, :roles => :web, :except => {:no_release => true} do
-            run kill_unicorn('TERM')
+          task :shutdown, :roles => :app, :except => {:no_release => true} do
+            run kill_unicorn('TERM'), :roles => unicorn_roles
           end
 
           desc 'Restart Unicorn'
-          task :restart, :roles => :web, :except => {:no_release => true} do
-            run <<-END
+          task :restart, :roles => :app, :except => {:no_release => true} do
+            script = <<-END
               if #{unicorn_is_running?}; then
                 echo "Restarting Unicorn...";
                 #{unicorn_send_signal('USR2')};
@@ -149,11 +150,12 @@ module CapistranoUnicorn
                 #{unicorn_send_signal('QUIT', get_old_unicorn_pid)};
               fi;
             END
+            run script, :roles => unicorn_roles
           end
 
           desc 'Reload Unicorn'
           task :reload, :roles => :web, :except => {:no_release => true} do
-            run <<-END
+            script = <<-END
               if #{unicorn_is_running?}; then
                 echo "Reloading Unicorn...";
                 #{unicorn_send_signal('HUP')};
@@ -161,11 +163,12 @@ module CapistranoUnicorn
                 #{start_unicorn}
               fi;
             END
+            run script, :roles => unicorn_roles
           end
 
           desc 'Add a new worker'
           task :add_worker, :roles => :web, :except => {:no_release => true} do
-            run <<-END
+            script = <<-END
               if #{unicorn_is_running?}; then
                 echo "Adding a new Unicorn worker...";
                 #{unicorn_send_signal('TTIN')};
@@ -173,11 +176,12 @@ module CapistranoUnicorn
                 echo "Unicorn is not running.";
               fi;
             END
+            run script, :roles => unicorn_roles
           end
 
           desc 'Remove amount of workers'
           task :remove_worker, :roles => :web, :except => {:no_release => true} do
-            run <<-END
+            script = <<-END
               if #{unicorn_is_running?}; then
                 echo "Removing a Unicorn worker...";
                 #{unicorn_send_signal('TTOU')};
@@ -185,6 +189,7 @@ module CapistranoUnicorn
                 echo "Unicorn is not running.";
               fi;
             END
+            run script, :roles => unicorn_roles
           end
         end
       end
